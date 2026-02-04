@@ -3,98 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoodMirror AI - Live</title>
+    <title>MoodMirror AI | Real-Time Dashboard</title>
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a2e; color: white; text-align: center; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #16213e; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h1 { color: #4ecca3; margin-bottom: 5px; }
-        .tagline { color: #95a5a6; margin-bottom: 30px; }
-        textarea { width: 90%; height: 100px; border-radius: 10px; padding: 10px; margin-bottom: 20px; border: none; font-size: 16px; }
-        button { background-color: #4ecca3; color: #1a1a2e; border: none; padding: 15px 30px; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 18px; transition: 0.3s; }
-        button:hover { background-color: #45b391; transform: scale(1.05); }
-        .result-box { margin-top: 30px; padding: 20px; border: 1px dashed #4ecca3; border-radius: 10px; background: #0f3460; display: none; }
-        #camera-area { margin: 20px 0; border-radius: 10px; overflow: hidden; border: 2px solid #4ecca3; width: 320px; height: 240px; margin-left: auto; margin-right: auto; }
+        :root { --neon: #00ff88; --bg: #0a0e17; --card: #161b22; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow-x: hidden; }
+        .dashboard { display: grid; grid-template-columns: 1fr 350px; gap: 20px; padding: 20px; max-width: 1200px; margin: auto; }
+        
+        /* Video Styling */
+        .video-box { position: relative; background: #000; border-radius: 20px; border: 2px solid #30363d; overflow: hidden; height: 450px; box-shadow: 0 0 20px rgba(0,255,136,0.1); }
         video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* Controls & Results */
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .card { background: var(--card); border: 1px solid #30363d; padding: 20px; border-radius: 15px; }
+        .stat-val { font-size: 24px; font-weight: bold; color: var(--neon); text-transform: uppercase; }
+        
+        textarea { width: 100%; height: 100px; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 10px; padding: 10px; box-sizing: border-box; resize: none; }
+        
+        .recommendation { font-size: 1.1em; color: #58a6ff; line-height: 1.5; border-left: 4px solid var(--neon); padding-left: 15px; }
+        
+        #loader { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.8s; }
+        .spinner { border: 4px solid #30363d; border-top: 4px solid var(--neon); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>🪞 MoodMirror AI</h1>
-        <p class="tagline">Class 12 AI Project: Emotional Detection & Study Optimization</p>
+<div id="loader">
+    <div class="spinner"></div>
+    <h2 style="margin-top: 20px;">Waking up MoodMirror AI...</h2>
+</div>
 
-        <div id="camera-area">
-            <video id="webcam" autoplay playsinline></video>
+<div class="dashboard">
+    <div class="main-content">
+        <header style="margin-bottom: 20px;">
+            <h1 style="margin:0; font-size: 1.5em;">MOOD<span style="color:var(--neon)">MIRROR</span> v2.0</h1>
+            <p style="color:#8b949e; margin:5px 0;">Class 12 AI Project: Real-time Fatigue & Sentiment Analysis</p>
+        </header>
+
+        <div class="video-box">
+            <video id="webcam" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
         </div>
 
-        <textarea id="user_input" placeholder="Type how you are feeling right now..."></textarea>
-        <br>
-        <button id="analyze_btn" py-click="process_mood">START AI ANALYSIS</button>
-
-        <div id="result_panel" class="result-box">
-            <h3 id="res_emotion">Emotion: Detecting...</h3>
-            <h3 id="res_sentiment">Sentiment: --</h3>
-            <hr>
-            <p id="res_advice" style="color: #f1c40f; font-style: italic; font-size: 18px;"></p>
+        <div class="card" style="margin-top: 20px;">
+            <h3>Describe your thought process:</h3>
+            <textarea id="user_text" placeholder="e.g., 'I am enjoying this chapter' or 'I feel really tired and confused'"></textarea>
         </div>
     </div>
 
-    <script type="py">
-        from pyscript import document
-        import random
+    <div class="sidebar">
+        <div class="card">
+            <p>LIVE EMOTION</p>
+            <div id="live-emo" class="stat-val">INITIALIZING...</div>
+        </div>
+        
+        <div class="card">
+            <p>TEXT SENTIMENT</p>
+            <div id="live-sent" class="stat-val">NEUTRAL</div>
+        </div>
 
-        # Mock Emotion Logic (since .h5 loading is heavy for 1-file HTML)
-        EMOTIONS = ["Happy", "Neutral", "Sad", "Tired", "Focused"]
+        <div class="card" style="flex-grow: 1;">
+            <h3>AI ADVICE</h3>
+            <div id="advice-panel" class="recommendation">
+                Adjusting to your state... Keep your camera visible.
+            </div>
+        </div>
+    </div>
+</div>
 
-        def get_sentiment(text):
-            # A simple rule-based sentiment engine for browser compatibility
-            positive_words = ["good", "happy", "great", "fine", "confident", "motivated", "excited"]
-            negative_words = ["sad", "bad", "tired", "stressed", "bored", "depressed", "hard"]
+<script type="py">
+from pyscript import document
+from pyodide.ffi import create_proxy
+import js
+
+def python_logic(emotion, text):
+    text = text.lower()
+    
+    # 1. Sentiment Score (Internal Logic)
+    pos = ["happy", "good", "easy", "great", "fun", "clear"]
+    neg = ["hard", "tired", "sad", "stressed", "bad", "bored"]
+    
+    score = 0
+    if any(w in text for w in pos): score = 1
+    if any(w in text for w in neg): score = -1
+    
+    sentiment = "POSITIVE" if score > 0 else "NEGATIVE" if score < 0 else "NEUTRAL"
+    
+    # 2. Recommendation Mapping
+    # Logic: Cross-referencing Face (Emotion) + Mind (Sentiment)
+    if emotion in ["sad", "angry", "fearful"] or sentiment == "NEGATIVE":
+        advice = "💡 STATUS: COGNITIVE OVERLOAD. Recommendation: Close your books. Take a 15-minute walk or listen to lo-fi music."
+    elif emotion == "happy" or sentiment == "POSITIVE":
+        advice = "💡 STATUS: FLOW STATE DETECTED. Recommendation: This is your peak focus time! Finish your most complex assignments now."
+    elif emotion == "surprised":
+        advice = "💡 STATUS: CURIOSITY SPIKE. Recommendation: You are learning something new! Take detailed notes to improve retention."
+    else:
+        advice = "💡 STATUS: STEADY. Recommendation: Maintain this pace. Remember to stay hydrated."
+
+    # Update UI
+    document.getElementById("live-sent").innerText = sentiment
+    document.getElementById("advice-panel").innerText = advice
+
+# Connect Python to the JS Loop
+js.window.pythonBrain = create_proxy(python_logic)
+</script>
+
+<script>
+    const video = document.getElementById('webcam');
+    const overlay = document.getElementById('overlay');
+    const emoDisplay = document.getElementById('live-emo');
+    const textInput = document.getElementById('user_text');
+
+    async function initAI() {
+        // Load optimized models from public CDN
+        const URI = 'https://vladmandic.github.io/face-api/model/';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(URI);
+        await faceapi.nets.faceExpressionNet.loadFromUri(URI);
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        video.srcObject = stream;
+
+        document.getElementById('loader').style.opacity = '0';
+        setTimeout(() => document.getElementById('loader').remove(), 800);
+    }
+
+    video.addEventListener('play', () => {
+        const displaySize = { width: video.clientWidth, height: video.clientHeight };
+        faceapi.matchDimensions(overlay, displaySize);
+
+        setInterval(async () => {
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                                          .withFaceExpressions();
             
-            score = 0
-            words = text.lower().split()
-            for word in words:
-                if word in positive_words: score += 1
-                if word in negative_words: score -= 1
-            
-            if score > 0: return "Positive"
-            if score < 0: return "Negative"
-            return "Neutral"
+            if (detection) {
+                // Get most prominent emotion
+                const topEmo = Object.keys(detection.expressions).reduce((a, b) => detection.expressions[a] > detection.expressions[b] ? a : b);
+                emoDisplay.innerText = topEmo;
 
-        def get_advice(emotion, sentiment):
-            if sentiment == "Negative" or emotion == "Sad":
-                return "💡 Recommendation: Take a 10-minute break. Try deep breathing or a short walk."
-            elif emotion == "Happy" or sentiment == "Positive":
-                return "💡 Recommendation: You are in a great state! Tackle your hardest subject right now."
-            else:
-                return "💡 Recommendation: Keep a steady pace. Review your summary notes."
+                // Send to Python for advice
+                if (window.pythonBrain) {
+                    window.pythonBrain(topEmo, textInput.value);
+                }
 
-        def process_mood(event):
-            # 1. Get User Text
-            input_text = document.getElementById("user_input").value
-            
-            # 2. Run Python Logic
-            sentiment = get_sentiment(input_text)
-            emotion = random.choice(EMOTIONS) # Simulation for browser version
-            advice = get_advice(emotion, sentiment)
+                // Draw bounding box (visual proof it's real-time)
+                const resized = faceapi.resizeResults(detection, displaySize);
+                const context = overlay.getContext('2d');
+                context.clearRect(0, 0, overlay.width, overlay.height);
+                faceapi.draw.drawDetections(overlay, resized);
+            }
+        }, 200); // 5 times per second (True Real-Time)
+    });
 
-            # 3. Update UI
-            document.getElementById("res_emotion").innerText = f"Detected Emotion: {emotion}"
-            document.getElementById("res_sentiment").innerText = f"Text Sentiment: {sentiment}"
-            document.getElementById("res_advice").innerText = advice
-            document.getElementById("result_panel").style.display = "block"
-    </script>
-
-    <script>
-        const video = document.getElementById('webcam');
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => { console.error("Webcam Error: ", err); });
-    </script>
-
+    initAI();
+</script>
 </body>
 </html>
