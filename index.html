@@ -1,141 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoodMirror AI | Study Assistant</title>
-    
+    <title>MoodMirror Real-Time</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-    
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-
     <style>
-        :root { --neon: #00ff88; --bg: #0d1117; --card: #161b22; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #c9d1d9; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        .container { max-width: 900px; width: 95%; padding: 20px; }
-        .video-wrapper { position: relative; width: 100%; border-radius: 12px; border: 2px solid #30363d; overflow: hidden; background: #000; height: 400px; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
-        .card { background: var(--card); border: 1px solid #30363d; padding: 15px; border-radius: 10px; }
-        .val { font-size: 1.4em; font-weight: bold; color: var(--neon); }
-        #loader { position: fixed; inset: 0; background: var(--bg); z-index: 99; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.5s; }
-        .spinner { border: 4px solid #30363d; border-top: 4px solid var(--neon); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { background: #0d1117; color: white; font-family: sans-serif; text-align: center; }
+        .video-box { position: relative; display: inline-block; border: 2px solid #00ff88; border-radius: 10px; overflow: hidden; }
+        canvas { position: absolute; top: 0; left: 0; }
+        #advice-panel { margin-top: 20px; font-size: 1.2em; color: #00ff88; min-height: 50px; }
     </style>
 </head>
 <body>
-
-<div id="loader">
-    <div class="spinner"></div>
-    <h2 style="margin-top:15px">MoodMirror is starting...</h2>
-    <p>Loading AI Models and Python Brain</p>
-</div>
-
-<div class="container">
-    <h1 style="color:white; margin-bottom:5px;">MOOD<span style="color:var(--neon)">MIRROR</span></h1>
-    <p style="margin-top:0; color:#8b949e;">Class 12 AI Project: Study Optimization Tool</p>
-
-    <div class="video-wrapper">
-        <video id="webcam" autoplay muted playsinline></video>
+    <h1>MOODMIRROR <span id="loading-status">(Loading AI...)</span></h1>
+    <div class="video-box">
+        <video id="web" width="640" height="480" autoplay muted playsinline></video>
         <canvas id="overlay"></canvas>
     </div>
+    <div id="advice-panel">Waiting for face detection...</div>
 
-    <div class="stats-grid">
-        <div class="card">
-            <div>CURRENT EMOTION</div>
-            <div id="emo-label" class="val">Detecting...</div>
-        </div>
-        <div class="card">
-            <div>STUDY STATUS</div>
-            <div id="status-label" class="val">Analyzing...</div>
-        </div>
-        <div class="card" style="grid-column: 1 / -1;">
-            <div style="margin-bottom:10px;">🧠 AI STUDY ADVICE:</div>
-            <div id="advice-text" style="line-height:1.6; color:white;">Scanning your focus state...</div>
-        </div>
-    </div>
-</div>
+    <script type="mpy" src="./logic.py" config='{"packages":[]}'></script>
 
-<script type="py">
-from pyscript import document
-from pyodide.ffi import create_proxy
-import js
+    <script>
+        const video = document.getElementById('web');
+        const adviceDiv = document.getElementById('advice-panel');
 
-def analyze_state(emotion):
-    # Core Logic from your MoodMirror.pdf
-    emotion = str(emotion).lower()
-    
-    if emotion in ["sad", "angry", "fearful"]:
-        status = "FATIGUE / STRESS"
-        advice = "⚠️ Cognitive overload detected. Take a 15-minute break. Try deep breathing or a quick walk."
-    elif emotion == "happy":
-        status = "FLOW STATE"
-        advice = "🚀 You are in a positive focus state! Keep going with your most difficult subjects now."
-    elif emotion == "surprised":
-        status = "HIGH ENGAGEMENT"
-        advice = "💡 You seem curious! This is a great time for active recall or testing yourself."
-    else:
-        status = "STEADY FOCUS"
-        advice = "✅ Steady progress. Remember to stay hydrated and keep your back straight."
-
-    # Update the UI directly from Python
-    document.getElementById("emo-label").innerText = emotion.upper()
-    document.getElementById("status-label").innerText = status
-    document.getElementById("advice-text").innerText = advice
-
-# Expose Python function to JavaScript
-js.window.pythonBrain = create_proxy(analyze_state)
-</script>
-
-<script>
-    const video = document.getElementById('webcam');
-    const overlay = document.getElementById('overlay');
-
-    async function startAI() {
-        // Using a reliable public model URI to prevent local 404 errors
-        const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
-        
-        try {
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+        async function start() {
+            // Using absolute CDN paths for models to prevent 404s
+            const URL = 'https://vladmandic.github.io/face-api/model/';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
+            await faceapi.nets.faceExpressionNet.loadFromUri(URL);
             
             const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
             video.srcObject = stream;
-            
-            // Remove loader when models are ready
-            document.getElementById('loader').style.display = 'none';
-        } catch (err) {
-            console.error("AI Init Error:", err);
-            document.querySelector('#loader h2').innerText = "Camera Access Denied or Model Error";
+            document.getElementById('loading-status').innerText = "✅ LIVE";
         }
-    }
 
-    video.addEventListener('play', () => {
-        const displaySize = { width: video.clientWidth, height: video.clientHeight };
-        faceapi.matchDimensions(overlay, displaySize);
-
-        setInterval(async () => {
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-            
-            if (detection) {
-                const expressions = detection.expressions;
-                const topEmotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
-                
-                // Call Python Brain
-                if (window.pythonBrain) window.pythonBrain(topEmotion);
-
-                // Draw bounding box
-                const resized = faceapi.resizeResults(detection, displaySize);
-                const ctx = overlay.getContext('2d');
-                ctx.clearRect(0, 0, overlay.width, overlay.height);
-                faceapi.draw.drawDetections(overlay, resized);
-            }
-        }, 250); // Updates 4 times per second (Real-Time)
-    });
-
-    startAI();
-</script>
+        video.addEventListener('play', () => {
+            setInterval(async () => {
+                const detect = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+                if (detect) {
+                    const top = Object.keys(detect.expressions).reduce((a, b) => detect.expressions[a] > detect.expressions[b] ? a : b);
+                    
+                    // Call the Python function from logic.py
+                    const pyscript = document.querySelector('script[type="mpy"]')._py;
+                    if (pyscript) {
+                        const result = pyscript.resolve('get_study_advice')(top);
+                        adviceDiv.innerText = result;
+                    }
+                }
+            }, 300); // 3 times per second
+        });
+        start();
+    </script>
 </body>
 </html>
