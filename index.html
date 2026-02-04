@@ -40,7 +40,7 @@
 </head>
 <body>
     <h1>Camera & Emotion Detector</h1>
-    <p>Use your camera to capture a photo and detect the emotion in the face.</p>
+    <p>Use your camera to capture a photo and detect the emotion in the face. The result will be displayed on the image.</p>
     
     <video id="video" width="320" height="240" autoplay></video>
     <br>
@@ -83,10 +83,18 @@
             resultDiv.textContent = 'Photo captured! Click "Detect Emotion" to analyze.';
         });
 
-        // Detect emotion
+        // Detect emotion and display on canvas
         document.getElementById('detectEmotion').addEventListener('click', async () => {
+            // Redraw the captured image to clear any previous overlays
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
             const detections = await faceapi.detectAllFaces(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
             if (detections.length > 0) {
+                // Draw detections and expressions on the canvas
+                faceapi.draw.drawDetections(canvas, detections);
+                faceapi.draw.drawFaceExpressions(canvas, detections);
+                
+                // Find the dominant emotion for the first face
                 const expressions = detections[0].expressions;
                 const emotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
                 resultDiv.textContent = `Detected Emotion: ${emotion} (Confidence: ${(expressions[emotion] * 100).toFixed(2)}%)`;
