@@ -32,6 +32,10 @@
         button:hover {
             background-color: #0056b3;
         }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         #result {
             margin-top: 20px;
             font-size: 18px;
@@ -44,6 +48,11 @@
             border-radius: 5px;
             display: inline-block;
         }
+        #loading {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -54,11 +63,12 @@
     <br>
     <button id="startCamera">Start Camera</button>
     <button id="capture">Capture Photo</button>
-    <button id="detectEmotion">Detect Emotion</button>
+    <button id="detectEmotion" disabled>Detect Emotion</button>
     <br>
     <canvas id="canvas" width="320" height="240"></canvas>
     <div id="result"></div>
     <div id="metrics"></div>
+    <div id="loading">Loading models... Please wait.</div>
 
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script>
@@ -67,14 +77,23 @@
         const ctx = canvas.getContext('2d');
         const resultDiv = document.getElementById('result');
         const metricsDiv = document.getElementById('metrics');
+        const loadingDiv = document.getElementById('loading');
+        const detectButton = document.getElementById('detectEmotion');
         let stream;
+        let modelsLoaded = false;
 
         // Load face-api.js models
         Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/'),
             faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/')
         ]).then(() => {
-            console.log('Models loaded');
+            console.log('Models loaded successfully');
+            modelsLoaded = true;
+            detectButton.disabled = false;
+            loadingDiv.textContent = 'Models loaded! Ready to detect.';
+        }).catch(err => {
+            console.error('Error loading models:', err);
+            loadingDiv.textContent = 'Error loading models. Please refresh the page.';
         });
 
         // Start camera
@@ -95,41 +114,52 @@
         });
 
         // Detect emotion and display on canvas with fake metrics
-        document.getElementById('detectEmotion').addEventListener('click', async () => {
+        detectButton.addEventListener('click', async () => {
+            if (!modelsLoaded) {
+                alert('Models are still loading. Please wait.');
+                return;
+            }
+            
             // Redraw the captured image to clear any previous overlays
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            const detections = await faceapi.detectAllFaces(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-            if (detections.length > 0) {
-                // Draw detections and expressions on the canvas
-                faceapi.draw.drawDetections(canvas, detections);
-                faceapi.draw.drawFaceExpressions(canvas, detections);
-                
-                // Find the dominant emotion for the first face
-                const expressions = detections[0].expressions;
-                const emotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
-                resultDiv.textContent = `Detected Emotion: ${emotion} (Confidence: ${(expressions[emotion] * 100).toFixed(2)}%)`;
-                
-                // Generate fake metrics
-                const blinkRate = Math.floor(Math.random() * 21) + 10; // Random 10-30 blinks/min
-                const accuracy = Math.floor(Math.random() * 21) + 80; // Random 80-100%
-                let status = 'Normal';
-                if (emotion === 'sad' || emotion === 'angry') {
-                    status = 'Potentially Stressed';
-                } else if (emotion === 'happy' || emotion === 'surprised') {
-                    status = 'Relaxed';
-                } else if (blinkRate > 25) {
-                    status = 'High Blink Rate - Possible Fatigue';
+            try {
+                const detections = await faceapi.detectAllFaces(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+                if (detections.length > 0) {
+                    // Draw detections and expressions on the canvas
+                    faceapi.draw.drawDetections(canvas, detections);
+                    faceapi.draw.drawFaceExpressions(canvas, detections);
+                    
+                    // Find the dominant emotion for the first face
+                    const expressions = detections[0].expressions;
+                    const emotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
+                    resultDiv.textContent = `Detected Emotion: ${emotion} (Confidence: ${(expressions[emotion] * 100).toFixed(2)}%)`;
+                    
+                    // Generate fake metrics
+                    const blinkRate = Math.floor(Math.random() * 21) + 10; // Random 10-30 blinks/min
+                    const accuracy = Math.floor(Math.random() * 21) + 80; // Random 80-100%
+                    let status = 'Normal';
+                    if (emotion === 'sad' || emotion === 'angry') {
+                        status = 'Potentially Stressed';
+                    } else if (emotion === 'happy' || emotion === 'surprised') {
+                        status = 'Relaxed';
+                    } else if (blinkRate > 25) {
+                        status = 'High Blink Rate - Possible Fatigue';
+                    }
+                    
+                    metricsDiv.innerHTML = `
+                        <strong>Fake Metrics:</strong><br>
+                        Eye Blink Rate: ${blinkRate} blinks/min<br>
+                        Detection Accuracy: ${accuracy}%<br>
+                        Emotion Status: ${status}
+                    `;
+                } else {
+                    resultDiv.textContent = 'No face detected. Try capturing again.';
+                    metricsDiv.textContent = '';
                 }
-                
-                metricsDiv.innerHTML = `
-                    <strong>Fake Metrics:</strong><br>
-                    Eye Blink Rate: ${blinkRate} blinks/min<br>
-                    Detection Accuracy: ${accuracy}%<br>
-                    Emotion Status: ${status}
-                `;
-            } else {
-                resultDiv.textContent = 'No face detected. Try capturing again.';
+            } catch (err) {
+                console.error('Error during detection:', err);
+                resultDiv.textContent = 'Error detecting emotion. Please try again.';
                 metricsDiv.textContent = '';
             }
         });
