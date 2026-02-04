@@ -3,176 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoodMirror Pro | Dynamic AI</title>
+    <title>MoodMirror | Live AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        .loading-spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .camera-error { display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #f87171; }
+        canvas { position: absolute; top: 0; left: 0; }
+        .scanning { position: relative; overflow: hidden; border: 4px solid #10b981; border-radius: 1rem; }
+        .scanning::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: #10b981; animation: scan 3s linear infinite; box-shadow: 0 0 15px #10b981;
+        }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen font-sans">
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center p-4">
 
-    <div id="loader" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="loading-spinner mb-4"></div>
-        <h2 class="text-emerald-500 font-bold tracking-widest animate-pulse">INITIALIZING AI CORE...</h2>
-        <p class="text-slate-500 text-sm mt-2">Downloading neural networks (approx 5MB)...</p>
+    <div id="overlay-screen" class="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center transition-opacity duration-500">
+        <h1 class="text-4xl font-black mb-4 text-emerald-500 italic uppercase">MoodMirror</h1>
+        <p class="mb-8 text-slate-400">Click below to initialize AI and Camera</p>
+        <button onclick="initProject()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-10 py-4 rounded-full font-bold text-xl shadow-lg shadow-emerald-500/20 transition-transform active:scale-95">
+            START SESSION
+        </button>
     </div>
 
-    <header class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/80 backdrop-blur-md">
-        <div class="flex items-center gap-3">
-            <h1 class="text-2xl font-black tracking-tighter uppercase italic">Mood<span class="text-emerald-500 text-shadow-glow">Mirror</span></h1>
-        </div>
-        <div id="aiStatus" class="text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 text-slate-500">SYSTEM STANDBY</div>
-    </header>
-
-    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <div class="lg:col-span-8 space-y-4">
-            <div class="relative bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl aspect-video">
-                
-                <div id="cameraErrorMessage" class="camera-error absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center">
-                    <svg class="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    <p class="font-bold text-lg">Camera Access Failed</p>
-                    <p class="text-sm opacity-80 mb-4">Ensure HTTPS is active and permissions are granted.</p>
-                    <button onclick="window.location.reload()" class="bg-red-500 text-white px-6 py-2 rounded-full font-bold text-sm">RETRY CONNECTION</button>
-                </div>
-
-                <video id="video" class="w-full h-full object-cover" autoplay muted playsinline></video>
-                <canvas id="snapshotCanvas" class="hidden absolute inset-0 w-full h-full object-cover"></canvas>
+    <div class="w-full max-w-4xl space-y-6">
+        <div class="flex justify-between items-end">
+            <div>
+                <h2 class="text-xs font-bold text-emerald-500 uppercase tracking-widest">Live Vision Engine</h2>
+                <p id="status-text" class="text-slate-500 text-sm italic italic">System Offline</p>
             </div>
-
-            <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex gap-4">
-                <button onclick="captureAndAnalyze()" id="captureBtn" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-4 rounded-xl transition flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4z"/><path fill-rule="evenodd" d="M10 14a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
-                    RUN DIAGNOSTIC
-                </button>
-                <button onclick="resetCamera()" class="px-6 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-xs uppercase tracking-widest">Reset</button>
-            </div>
+            <button onclick="captureImage()" class="bg-slate-800 hover:bg-slate-700 px-6 py-2 rounded-lg text-xs font-bold border border-slate-700">CAPTURE SNAPSHOT</button>
         </div>
 
-        <div class="lg:col-span-4 space-y-6">
-            <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-3xl border border-slate-700">
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Current State</p>
-                <div id="scoreNum" class="text-7xl font-black text-white">--</div>
-                <div id="scoreTag" class="text-emerald-400 font-bold mt-2 uppercase text-xs tracking-tighter tracking-widest italic">Awaiting Capture...</div>
-            </div>
-
-            <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">AI Intervention</p>
-                <p id="advice" class="text-slate-300 italic leading-relaxed font-medium">Ready to analyze study patterns...</p>
-            </div>
-
-            <div class="bg-black/40 p-4 rounded-xl border border-slate-800 font-mono text-[10px] text-emerald-500/70">
-                <p class="uppercase font-bold mb-1 border-b border-emerald-500/20 pb-1 text-emerald-500">System Logs</p>
-                <div id="logs" class="space-y-1">
-                    <p>> App initialized</p>
-                </div>
-            </div>
+        <div class="scanning" id="container">
+            <video id="video" width="1280" height="720" class="w-full h-auto bg-black" autoplay muted playsinline></video>
         </div>
-    </main>
+
+        <div id="result-box" class="hidden bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-bold">Mental State Detection</p>
+                <h3 id="emotion-display" class="text-3xl font-black text-emerald-400 uppercase tracking-tighter">Analyzing...</h3>
+            </div>
+            <canvas id="snapshot" class="w-32 h-20 rounded-lg border border-slate-700"></canvas>
+        </div>
+    </div>
 
     <script>
         const video = document.getElementById('video');
-        const canvas = document.getElementById('snapshotCanvas');
-        const loader = document.getElementById('loader');
-        const logs = document.getElementById('logs');
-        const statusHeader = document.getElementById('aiStatus');
+        const status = document.getElementById('status-text');
 
-        function log(msg) {
-            const p = document.createElement('p');
-            p.innerText = `> ${msg}`;
-            logs.prepend(p);
-        }
-
-        async function init() {
-            log("Loading neural networks...");
+        async function initProject() {
+            document.getElementById('overlay-screen').style.opacity = '0';
+            setTimeout(() => document.getElementById('overlay-screen').style.display = 'none', 500);
+            
+            status.innerText = "Loading AI Models...";
+            
+            // CORRECTED: Using 'faceapi' without hyphen and reliable HTTPS URL
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
             
             try {
-                // Pre-load all required models
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                     faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
                 ]);
                 
-                log("Models loaded successfully.");
-                statusHeader.innerText = "AI ONLINE";
-                statusHeader.className = "text-[10px] font-bold px-3 py-1 rounded-full border border-emerald-500 text-emerald-500 bg-emerald-500/10";
-                
-                startCamera();
+                status.innerText = "Models Ready. Accessing Camera...";
+                startVideo();
             } catch (err) {
-                log("ERROR: Model loading failed.");
-                alert("Failed to load AI models. Check your internet.");
+                status.innerText = "Error Loading Models. Check Connection.";
+                console.error(err);
             }
         }
 
-        function startCamera() {
-            log("Requesting camera permissions...");
-            navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: {} })
                 .then(stream => {
                     video.srcObject = stream;
-                    log("Stream connected.");
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 500);
+                    status.innerText = "System Live - Monitoring Emotions";
                 })
                 .catch(err => {
-                    log(`CRITICAL: ${err.name}`);
-                    document.getElementById('cameraErrorMessage').style.display = 'flex';
-                    loader.style.display = 'none';
+                    status.innerText = "Camera Access Denied!";
+                    alert("Please allow camera access in your browser settings.");
                 });
         }
 
-        async function captureAndAnalyze() {
-            log("Executing frame analysis...");
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+        video.addEventListener('play', () => {
+            const canvas = faceapi.createCanvasFromMedia(video);
+            document.getElementById('container').append(canvas);
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                faceapi.draw.drawDetections(canvas, resizedDetections);
+                
+                if(detections.length > 0) {
+                    const expressions = detections[0].expressions;
+                    const topEmotion = Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                    document.getElementById('liveEmotion')?.innerText = topEmotion;
+                }
+            }, 150);
+        });
+
+        function captureImage() {
+            const snapCanvas = document.getElementById('snapshot');
+            const resultBox = document.getElementById('result-box');
+            resultBox.classList.remove('hidden');
             
-            if (detection) {
-                // Snapshot visual effect
-                const ctx = canvas.getContext('2d');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-                canvas.classList.remove('hidden');
-                video.classList.add('hidden');
-
-                const emotion = Object.entries(detection.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
-                log(`Result: ${emotion.toUpperCase()} detected.`);
-                updateDashboard(emotion);
-            } else {
-                log("WARN: No face in frame.");
-                alert("AI could not find a face. Please look directly at the camera.");
-            }
+            snapCanvas.width = video.videoWidth;
+            snapCanvas.height = video.videoHeight;
+            snapCanvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Add a fun "analyzing" delay
+            document.getElementById('emotion-display').innerText = "Processing...";
+            setTimeout(async () => {
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+                if(detection) {
+                    const emotion = Object.entries(detection.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                    document.getElementById('emotion-display').innerText = emotion;
+                }
+            }, 800);
         }
-
-        function updateDashboard(emotion) {
-            const score = document.getElementById('scoreNum');
-            const tag = document.getElementById('scoreTag');
-            const advice = document.getElementById('advice');
-
-            if (emotion === 'happy') {
-                score.innerText = "92";
-                tag.innerText = "FLOW STATE DETECTED";
-                advice.innerText = "Optimal cognitive performance. Proceed with complex problem solving.";
-            } else if (['sad', 'angry', 'fearful'].includes(emotion)) {
-                score.innerText = "28";
-                tag.innerText = "STRESS INTERVENTION";
-                advice.innerText = "Cognitive load too high. Recommendation: 5-minute deep breathing or water break.";
-            } else {
-                score.innerText = "75";
-                tag.innerText = "STABLE FOCUS";
-                advice.innerText = "Steady mental state. Good time for memorization or routine review.";
-            }
-        }
-
-        function resetCamera() {
-            video.classList.remove('hidden');
-            canvas.classList.add('hidden');
-            log("Camera reset.");
-        }
-
-        window.onload = init;
     </script>
 </body>
 </html>
