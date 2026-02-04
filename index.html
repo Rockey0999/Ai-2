@@ -1,58 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MoodMirror Real-Time</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodMirror AI - Live</title>
+    
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    
     <style>
-        body { background: #0d1117; color: white; font-family: sans-serif; text-align: center; }
-        .video-box { position: relative; display: inline-block; border: 2px solid #00ff88; border-radius: 10px; overflow: hidden; }
-        canvas { position: absolute; top: 0; left: 0; }
-        #advice-panel { margin-top: 20px; font-size: 1.2em; color: #00ff88; min-height: 50px; }
+        body { background: #0a0e14; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .box { max-width: 600px; margin: auto; background: #161b22; padding: 20px; border-radius: 15px; border: 1px solid #30363d; }
+        video { width: 100%; border-radius: 10px; background: #000; }
+        #status { color: #00ff88; font-weight: bold; font-size: 1.2em; margin: 15px 0; }
+        #advice { background: #0d1117; padding: 15px; border-radius: 8px; color: #58a6ff; min-height: 50px; }
+        .loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0e14; display: flex; align-items: center; justify-content: center; z-index: 100; }
     </style>
 </head>
 <body>
-    <h1>MOODMIRROR <span id="loading-status">(Loading AI...)</span></h1>
-    <div class="video-box">
-        <video id="web" width="640" height="480" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-    </div>
-    <div id="advice-panel">Waiting for face detection...</div>
 
-    <script type="mpy" src="./logic.py" config='{"packages":[]}'></script>
+<div id="loader" class="loading"><h2>🚀 Waking up AI... Please Allow Camera</h2></div>
 
-    <script>
-        const video = document.getElementById('web');
-        const adviceDiv = document.getElementById('advice-panel');
+<div class="box">
+    <h1>MOODMIRROR <span style="color:#00ff88">LIVE</span></h1>
+    <video id="video" autoplay muted playsinline></video>
+    
+    <div id="status">DETECTING...</div>
+    <div id="advice">Point the camera at your face to start.</div>
+</div>
 
-        async function start() {
-            // Using absolute CDN paths for models to prevent 404s
-            const URL = 'https://vladmandic.github.io/face-api/model/';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-            await faceapi.nets.faceExpressionNet.loadFromUri(URL);
+<script>
+    const video = document.getElementById('video');
+    const statusDiv = document.getElementById('status');
+    const adviceDiv = document.getElementById('advice');
+
+    // THIS IS YOUR PYTHON-STYLE LOGIC CONVERTED TO FAST JS FOR GITHUB
+    function getAdvice(emo) {
+        const recommendations = {
+            'happy': "🚀 FLOW STATE: You're in a great mood! Tackle your hardest math/science problems now.",
+            'sad': "⚠️ FATIGUE: You look tired. Take a 15-minute power nap or a walk.",
+            'angry': "🔥 STRESS: High frustration detected. Stop studying for 10 mins and listen to music.",
+            'surprised': "💡 ENGAGED: You look curious! Great time to learn new concepts.",
+            'neutral': "✅ STEADY: Good focus. Keep going, but remember to drink water.",
+            'default': "Scanning your emotional state..."
+        };
+        return recommendations[emo] || recommendations['default'];
+    }
+
+    async function start() {
+        try {
+            // Load models from a reliable public mirror
+            const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
             
-            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            // Start Camera
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = stream;
-            document.getElementById('loading-status').innerText = "✅ LIVE";
-        }
-
-        video.addEventListener('play', () => {
+            
+            document.getElementById('loader').style.display = 'none';
+            
+            // Loop Detection
             setInterval(async () => {
                 const detect = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
                 if (detect) {
-                    const top = Object.keys(detect.expressions).reduce((a, b) => detect.expressions[a] > detect.expressions[b] ? a : b);
+                    const expressions = detect.expressions;
+                    const topEmo = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
                     
-                    // Call the Python function from logic.py
-                    const pyscript = document.querySelector('script[type="mpy"]')._py;
-                    if (pyscript) {
-                        const result = pyscript.resolve('get_study_advice')(top);
-                        adviceDiv.innerText = result;
-                    }
+                    statusDiv.innerText = "EMOTION: " + topEmo.toUpperCase();
+                    adviceDiv.innerText = getAdvice(topEmo);
                 }
-            }, 300); // 3 times per second
-        });
-        start();
-    </script>
+            }, 500);
+
+        } catch (err) {
+            document.getElementById('loader').innerHTML = "<h2>❌ Error: Camera Denied or No Internet</h2>";
+            console.error(err);
+        }
+    }
+
+    start();
+</script>
 </body>
 </html>
