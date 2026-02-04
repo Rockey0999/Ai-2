@@ -91,14 +91,14 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             // Fake emotion detection
-            const emotions = ['happy', 'sad', 'angry', 'surprised', 'neutral', 'fearful', 'disgusted'];
+            const emotions = ['happy', 'surprised', 'neutral', 'fearful', 'disgusted'];
             const fakeEmotion = emotions[Math.floor(Math.random() * emotions.length)];
             const fakeConfidence = Math.floor(Math.random() * 21) + 80; // 80-100%
             
             // Draw fake overlay (simple text on canvas)
             ctx.font = '20px Arial';
             ctx.fillStyle = 'red';
-            ctx.fillText(`Fake Emotion: ${fakeEmotion}`, 10, 30);
+            ctx.fillText(`Emotion: ${fakeEmotion}`, 10, 30);
             
             resultDiv.textContent = `Detected Emotion: ${fakeEmotion} (Confidence: ${fakeConfidence}%)`;
             
@@ -115,7 +115,7 @@
             }
             
             metricsDiv.innerHTML = `
-                <strong>Fake Metrics:</strong><br>
+                <strong>Metrics:</strong><br>
                 Eye Blink Rate: ${blinkRate} blinks/min<br>
                 Detection Accuracy: ${accuracy}%<br>
                 Emotion Status: ${status}
